@@ -8,13 +8,30 @@ import random
 
 FORTUNES_FILE = "fortunes.txt"
 
-# Animation settings
 SCROLL_SPEED = 0.03
-CHASE_SPEED = 0.20
-CHASE_SPACING = 2
-CHASE_GAP = 1
 PAUSE_DURATION = 1.5
 RUN_DURATION = 180
+
+MARQUEE_STYLES = [
+    {
+        "name": "Alternating",
+        "speed": 0.20,
+        "spacing": 2,
+        "gap": 1
+    },
+    {
+        "name": "Vintage Movie Theater",
+        "speed": 0.10,
+        "spacing": 8,
+        "gap": 1
+    },
+    {
+        "name": "Inverse Movie Theater",
+        "speed": 0.10,
+        "spacing": 8,
+        "gap": 7
+    }
+]
 
 # Border brightness
 BORDER_BRIGHTNESS = 0.50
@@ -88,6 +105,13 @@ class RunText(SampleBase):
         font = graphics.Font()
         font.LoadFont("../../../fonts/8x13.bdf")
         textColor = random.choice(COLORS)
+
+        # Randomly select marquee animation style
+        marquee_style = random.choice(MARQUEE_STYLES)
+
+        CHASE_SPEED = marquee_style["speed"]
+        CHASE_SPACING = marquee_style["spacing"]
+        CHASE_GAP = marquee_style["gap"]
 
         w = offscreen_canvas.width
         h = offscreen_canvas.height
