@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 # Display a runtext with double-buffering.
 from samplebase import SampleBase
@@ -6,6 +7,24 @@ import time
 import random
 
 FORTUNES_FILE = "fortunes.txt"
+
+# Animation settings
+SCROLL_SPEED = 0.03
+CHASE_SPEED = 0.20
+CHASE_SPACING = 2
+CHASE_GAP = 1
+PAUSE_DURATION = 1.5
+RUN_DURATION = 180
+
+# Border brightness
+BORDER_BRIGHTNESS = 0.50
+
+gold_r = int(255 * BORDER_BRIGHTNESS)
+gold_g = int(215 * BORDER_BRIGHTNESS)
+gold_b = 0
+
+gold = graphics.Color(gold_r, gold_g, gold_b)
+
 
 COLORS = [
     # Core bright colors
@@ -20,7 +39,7 @@ COLORS = [
     # Warm tones (very readable)
     graphics.Color(255, 165, 0),  # Orange
     graphics.Color(255, 140, 0),  # Dark orange
-    graphics.Color(255, 215, 0),  # Gold
+    gold,  # Gold
     graphics.Color(255, 192, 203),  # Pink
     graphics.Color(255, 105, 180),  # Hot pink
     graphics.Color(255, 69, 0),  # Orange red
@@ -52,7 +71,11 @@ COLORS = [
 class RunText(SampleBase):
     def __init__(self, *args, **kwargs):
         super(RunText, self).__init__(*args, **kwargs)
-        self.parser.add_argument("-t", "--text", help="The text to scroll on the RGB LED panel", default="Hello world!")
+        self.parser.add_argument(
+            "-t", "--text",
+            help="The text to scroll on the RGB LED panel",
+            default="Hello world!"
+        )
 
     def get_fortune(self):
         with open(FORTUNES_FILE) as f:
@@ -61,29 +84,100 @@ class RunText(SampleBase):
 
     def run(self):
         offscreen_canvas = self.matrix.CreateFrameCanvas()
+
         font = graphics.Font()
         font.LoadFont("../../../fonts/8x13.bdf")
         textColor = random.choice(COLORS)
 
-        pos = offscreen_canvas.width
+        w = offscreen_canvas.width
+        h = offscreen_canvas.height
+
+        pos = w
         my_text = self.get_fortune()
 
-        startTime = time.time()
-        endTime = startTime + 120
+        font_height = 13
+        y = (h + font_height) // 2 - 2
 
-        while time.time() < endTime:
+        # Build clockwise border path
+        border_pixels = []
+
+        # Top edge: left to right
+        for x in range(w):
+            border_pixels.append((x, 0))
+
+        # Right edge: top to bottom
+        for by in range(1, h):
+            border_pixels.append((w - 1, by))
+
+        # Bottom edge: right to left
+        for x in range(w - 2, -1, -1):
+            border_pixels.append((x, h - 1))
+
+        # Left edge: bottom to top
+        for by in range(h - 2, 0, -1):
+            border_pixels.append((0, by))
+
+        # Animation timers
+        startTime = time.monotonic()
+        endTime = startTime + RUN_DURATION
+        chase_start = startTime
+        pause_until = 0
+
+        while time.monotonic() < endTime:
             offscreen_canvas.Clear()
-            font_height = 13  # for 8x13.bdf
-            y = (offscreen_canvas.height + font_height) // 2 - 2
-            text_len = graphics.DrawText(offscreen_canvas, font, pos, y, textColor, my_text)
-            pos -= 1
-            if (pos + text_len < 0):
-                pos = offscreen_canvas.width
+            now = time.monotonic()
 
-            time.sleep(0.035)
-            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+            # Draw scrolling text unless paused
+            if now >= pause_until:
+
+                text_len = graphics.DrawText(
+                    offscreen_canvas,
+                    font,
+                    pos,
+                    y,
+                    textColor,
+                    my_text
+                )
+
+                pos -= 1
+
+                # Pause before restarting text
+                if pos + text_len < 0:
+                    pos = w
+                    pause_until = now + PAUSE_DURATION
+
+            # Calculate current border animation phase
+            chase_offset = int(
+                (now - chase_start) / CHASE_SPEED
+            )
+
+            # Draw alternating gold border
+            for i, (bx, by) in enumerate(border_pixels):
+
+                if (i - chase_offset) % CHASE_SPACING < CHASE_GAP:
+
+                    # LED off
+                    offscreen_canvas.SetPixel(
+                        bx, by, 0, 0, 0
+                    )
+
+                else:
+
+                    # LED on
+                    offscreen_canvas.SetPixel(
+                        bx, by, gold_r, gold_g, gold_b
+                    )
+
+            # Display completed frame
+            offscreen_canvas = self.matrix.SwapOnVSync(
+                offscreen_canvas
+            )
+
+            time.sleep(SCROLL_SPEED)
+
+        # Clear the display when finished
         offscreen_canvas.Clear()
-
+        self.matrix.SwapOnVSync(offscreen_canvas)
 
 
 # Main function
